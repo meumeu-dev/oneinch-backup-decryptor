@@ -25,7 +25,7 @@ Full notice in [`LEGAL.md`](LEGAL.md).
 
 ```bash
 git clone https://github.com/<you>/oneinch-backup-decryptor
-cd oneinch-backup-decryptor/web
+cd oneinch-backup-decryptor
 xdg-open index.html    # Linux
 open index.html         # macOS
 start index.html        # Windows
@@ -35,9 +35,9 @@ The file opens in your default browser. Drop your `.1inch` file, type the passph
 
 ### Option 2 — any static host
 
-The `web/` directory is a plain static site. Push it to GitHub Pages, Netlify, Vercel, S3, nginx, caddy, python3 -m http.server, whatever. The `<meta http-equiv="Content-Security-Policy">` tag inside `index.html` enforces `connect-src 'none'` so the E2EE guarantee holds on any host.
+The repository root is a plain static site. Point GitHub Pages / Netlify / Vercel / S3 / nginx / caddy / `python3 -m http.server` at it, whatever. The `<meta http-equiv="Content-Security-Policy">` tag inside `index.html` enforces `connect-src 'none'` so the E2EE guarantee holds on any host.
 
-For GitHub Pages specifically, point Pages at `web/` as the source; the `.nojekyll` file is already there.
+For GitHub Pages specifically: in the repo settings, set the Pages source to `main` branch, `/ (root)`. The `.nojekyll` file disables Jekyll.
 
 ---
 
@@ -121,11 +121,12 @@ This is the libsodium-standard XChaCha20-Poly1305 AEAD with a strong default Arg
 ## Source layout
 
 ```
-web/
+.
 ├── index.html                 main app (≈ 500 lines JS, audit-friendly)
 ├── .nojekyll                  disables Jekyll on GitHub Pages
 ├── robots.txt                 crawler / AI opt-out
 ├── ai.txt                     IETF ai.txt opt-out signal
+├── README.md · LEGAL.md · LICENSE
 └── vendor/
     ├── argon2-bundled.min.js  argon2-browser 1.18.0 (WASM, SRI pinned)
     ├── sha3.min.js            js-sha3 0.9.3 (SRI pinned)
