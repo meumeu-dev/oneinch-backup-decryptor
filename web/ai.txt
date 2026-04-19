@@ -1,0 +1,14 @@
+# IETF ai.txt signal (complementary to robots.txt)
+# https://site.spawning.ai/spaces/ai-txt
+
+User-Agent: *
+Disallow: /
+
+# Explicit opt-out of:
+#   - training data ingestion
+#   - retrieval-augmented generation (RAG)
+#   - browser-integrated AI agents
+# for this entire site.
+
+AI-Training: noai
+AI-Inference: noai

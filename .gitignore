@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Go
+/go/oneinch-decrypt
+/go/oneinch-decrypt.exe
+
+# NEVER commit decrypted material or test artifacts
+*.decrypted.json
+*.plaintext.json
+*.vault
+wallets*.json
+out/
+secrets/
+test-backup/
+real-backup/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Logs / temp
+*.log
+/tmp/

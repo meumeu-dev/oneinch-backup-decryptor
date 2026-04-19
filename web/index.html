@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- E2EE guarantee via meta CSP: works on GitHub Pages / plain HTTP hosts that
+       can't set custom headers. 'connect-src none' blocks fetch/XHR/WebSocket/sendBeacon,
+       so a tampered script cannot exfiltrate your passphrase or seeds. -->
+  <!-- 'unsafe-inline' is required for the frame-buster + main app logic.
+       It does NOT weaken the E2EE guarantee: that's enforced by
+       connect-src 'none' below (no network, no exfiltration). -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'none';
+    script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data:;
+    connect-src 'none';
+    media-src 'none';
+    object-src 'none';
+    frame-src 'none';
+    form-action 'none';
+    base-uri 'none';
+    manifest-src 'none';
+  " />
+  <meta name="referrer" content="no-referrer" />
+  <!-- Opt out of every crawler, archiver, AI trainer and scraper we can name. -->
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache, notranslate, noai, noimageai" />
+  <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noai, noimageai" />
+  <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet" />
+  <meta name="DuckDuckBot" content="noindex, nofollow, noarchive" />
+  <meta name="Baiduspider" content="noindex, nofollow, noarchive" />
+  <meta name="YandexBot" content="noindex, nofollow, noarchive" />
+  <meta name="ClaudeBot" content="noindex, nofollow, noarchive, noai" />
+  <meta name="GPTBot" content="noindex, nofollow, noarchive, noai" />
+  <meta name="ChatGPT-User" content="noindex, nofollow, noarchive, noai" />
+  <meta name="OAI-SearchBot" content="noindex, nofollow, noarchive, noai" />
+  <meta name="anthropic-ai" content="noindex, nofollow, noarchive, noai" />
+  <meta name="CCBot" content="noindex, nofollow, noarchive, noai" />
+  <meta name="Google-Extended" content="noindex, nofollow, noai" />
+  <meta name="PerplexityBot" content="noindex, nofollow, noai" />
+  <meta name="Applebot-Extended" content="noindex, nofollow, noai" />
+  <!-- Spawning AI opt-out + IETF ai.txt signal (complements robots.txt) -->
+  <meta name="spawning-ai" content="noai, noimageai" />
+  <title>1inch Wallet Backup Decryptor</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 2rem auto; padding: 1rem; background: #0f172a; color: #e2e8f0; }
+    h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+    .header { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .e2ee-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+      color: #d1fae5; padding: .35rem .7rem; border-radius: 9999px;
+      font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+      border: 1px solid #10b981; box-shadow: 0 0 12px rgba(16,185,129,.35);
+    }
+    .e2ee-badge::before { content: "🔒"; font-size: 1rem; }
+    .e2ee-info { background: #052e26; border: 1px solid #065f46; padding: .75rem 1rem; border-radius: 8px; margin: 1rem 0; font-size: .8rem; line-height: 1.5; }
+    .e2ee-info strong { color: #6ee7b7; }
+    .e2ee-info ul { margin: .4rem 0 0; padding-left: 1.3rem; }
+    .e2ee-info li { margin: .15rem 0; }
+    .e2ee-info code { background: #0f172a; padding: .05rem .35rem; border-radius: 3px; font-size: .75rem; }
+    .warn { background: #451a03; border: 1px solid #92400e; padding: .75rem; border-radius: 6px; margin: 1rem 0; font-size: .85rem; }
+    .card { background: #1e293b; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+    label { display: block; margin: .5rem 0 .25rem; font-size: .9rem; }
+    input[type=file], input[type=password] { width: 100%; padding: .5rem; background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 4px; font-family: inherit; }
+    button { background: #2563eb; color: white; border: 0; padding: .6rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 1rem; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    pre { background: #020617; padding: .75rem; overflow-x: auto; font-size: .8rem; border-radius: 4px; max-height: 300px; }
+    .status { font-family: ui-monospace, monospace; font-size: .85rem; color: #fbbf24; }
+    .err { color: #ef4444; }
+    .ok { color: #10b981; }
+    .wallet-item { background: #0f172a; padding: .5rem; margin: .25rem 0; border-left: 3px solid #2563eb; font-family: ui-monospace, monospace; font-size: .75rem; }
+    a.dl { color: #60a5fa; }
+    .netstatus { font-family: ui-monospace, monospace; font-size: .7rem; color: #94a3b8; margin-top: .35rem; }
+    .netstatus.ok { color: #6ee7b7; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>1inch Wallet Backup Decryptor</h1>
+    <span class="e2ee-badge" title="End-to-end encrypted — no server ever sees your passphrase or wallets">E2EE</span>
+  </div>
+
+  <div class="e2ee-info">
+    <strong>🔐 End-to-end encrypted — verifiable by design.</strong>
+    <ul>
+      <li><strong>Zero network</strong> — <code>Content-Security-Policy: connect-src 'none'</code> blocks every <code>fetch</code>, <code>XHR</code>, <code>WebSocket</code>, <code>sendBeacon</code>. Your browser will <em>refuse</em> to send data out.</li>
+      <li><strong>Zero external script</strong> — all libraries (Argon2, SHA3, JSZip, BIP-39) served from the same origin with <code>Subresource Integrity</code> hashes pinned.</li>
+      <li><strong>Zero trust in us</strong> — save this page to disk (<code>Ctrl-S</code>), disconnect from the network, and re-open it. It still works. Audit the source — ~300 lines.</li>
+      <li><strong>Zero backend</strong> — deploy on GitHub Pages, a plain static server, or just open this file from disk. There is no POST endpoint, no server-side code, nowhere to leak to.</li>
+    </ul>
+    <div id="netstatus" class="netstatus">Checking network isolation…</div>
+  </div>
+
+  <div class="warn">
+    N'utilise QUE pour TES propres backups.
+  </div>
+
+  <div class="card">
+    <label>Fichier backup (.1inch)</label>
+    <input type="file" id="file" accept=".1inch,.bin,application/octet-stream" />
+
+    <label>Passphrase</label>
+    <input type="password" id="pw" placeholder="ta clé de chiffrement" />
+
+    <button id="go" disabled>Decrypt</button>
+    <div class="status" id="status">Chargement des libs crypto…</div>
+  </div>
+
+  <div class="card" id="result" style="display:none">
+    <h3>Résultat</h3>
+    <div id="summary"></div>
+    <p>
+      <a class="dl" id="dl-vault" href="#">⬇ Télécharger wallets.vault (rechiffré avec la même passphrase) 🔐</a>
+    </p>
+    <details style="margin-top:.5rem">
+      <summary style="cursor:pointer; color:#fca5a5">⚠ Exports EN CLAIR (cliquer pour afficher — risque)</summary>
+      <div style="background:#450a0a; border:1px solid #b91c1c; padding:.7rem; border-radius:6px; margin-top:.5rem; font-size:.8rem">
+        <strong>Attention :</strong> les fichiers ci-dessous contiennent les seeds EN CLAIR. N'importe qui qui les récupère peut drainer les wallets. Si tu les télécharges, supprime-les sécuritairement après usage (<code>shred -uz</code>).
+        <p style="margin:.5rem 0 0">
+          <a class="dl" id="dl-json" href="#">⬇ wallets.json (plaintext)</a> ·
+          <a class="dl" id="dl-zip" href="#">⬇ wallets.zip (un JSON par wallet, plaintext)</a>
+        </p>
+      </div>
+    </details>
+    <h4>Preview premiers 5 wallets</h4>
+    <div id="preview"></div>
+  </div>
+
+  <!-- Frame-buster: refuse to run inside an iframe (clickjacking / UI-redress defense).
+       Must be the very first script so it fires before any user interaction. -->
+  <script>
+    if (top !== self) {
+      try { top.location = self.location; }
+      catch (e) { document.documentElement.innerHTML = ''; }
+    }
+  </script>
+
+  <!-- All crypto libs served from SAME ORIGIN — no external network after page load.
+       File integrity verified via SRI hashes. -->
+  <script src="vendor/argon2-bundled.min.js"
+          integrity="sha384-XOR3aNvHciLPIf6r+2glkrmbBbLmIJ1EChMXjw8eBKBf8gE0rDq1TyUNuRdorOqi"></script>
+  <script src="vendor/sha3.min.js"
+          integrity="sha384-+JAeTqUiH9WuByObPHouP4rQKYUTLQ9AQW4HHJZ4uNmkA2+nkDpbssQNGsVXnJpe"></script>
+  <script src="vendor/jszip.min.js"
+          integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG"></script>
+  <!-- BIP39 wordlist inlined + SRI-checked: tampering would change mnemonics and leak funds.
+       Hash also verified in JS (defense-in-depth via crypto.subtle.digest). -->
+  <script src="vendor/bip39-english.js"
+          integrity="sha384-WZZW6Gxf477Lihdv+mutxgAf+Kzt7FFZPnUwwltDp5qZ5Fr87RRvRXawc7tNSFRh"></script>
+
+  <script>
+    const MAGIC = '1inchbackup';
+    const SHA3_ITER = 30001;
+
+    // ---- ChaCha20 primitives ----
+    function rotl32(x, n) { return ((x << n) | (x >>> (32 - n))) >>> 0; }
+    function qr(s, a, b, c, d) {
+      s[a] = (s[a] + s[b]) >>> 0; s[d] = rotl32(s[d] ^ s[a], 16);
+      s[c] = (s[c] + s[d]) >>> 0; s[b] = rotl32(s[b] ^ s[c], 12);
+      s[a] = (s[a] + s[b]) >>> 0; s[d] = rotl32(s[d] ^ s[a], 8);
+      s[c] = (s[c] + s[d]) >>> 0; s[b] = rotl32(s[b] ^ s[c], 7);
+    }
+    function u32le(bytes, off) {
+      return (bytes[off] | (bytes[off+1]<<8) | (bytes[off+2]<<16) | (bytes[off+3]<<24)) >>> 0;
+    }
+    function hchacha20(key, nonce16) {
+      const s = new Uint32Array(16);
+      s[0]=0x61707865; s[1]=0x3320646e; s[2]=0x79622d32; s[3]=0x6b206574;
+      for (let i=0;i<8;i++) s[4+i] = u32le(key, 4*i);
+      for (let i=0;i<4;i++) s[12+i] = u32le(nonce16, 4*i);
+      for (let r=0;r<10;r++) {
+        qr(s,0,4,8,12); qr(s,1,5,9,13); qr(s,2,6,10,14); qr(s,3,7,11,15);
+        qr(s,0,5,10,15); qr(s,1,6,11,12); qr(s,2,7,8,13); qr(s,3,4,9,14);
+      }
+      const out = new Uint8Array(32);
+      for (let i=0;i<4;i++) { out[4*i]=s[i]&0xff; out[4*i+1]=(s[i]>>>8)&0xff; out[4*i+2]=(s[i]>>>16)&0xff; out[4*i+3]=(s[i]>>>24)&0xff; }
+      for (let i=12;i<16;i++) { const j=4*(i-12)+16; out[j]=s[i]&0xff; out[j+1]=(s[i]>>>8)&0xff; out[j+2]=(s[i]>>>16)&0xff; out[j+3]=(s[i]>>>24)&0xff; }
+      return out;
+    }
+    function chachaBlock(key, nonce8, counterLo, counterHi) {
+      const s = new Uint32Array(16);
+      s[0]=0x61707865; s[1]=0x3320646e; s[2]=0x79622d32; s[3]=0x6b206574;
+      for (let i=0;i<8;i++) s[4+i]=u32le(key,4*i);
+      s[12]=counterLo>>>0; s[13]=counterHi>>>0;
+      s[14]=u32le(nonce8,0); s[15]=u32le(nonce8,4);
+      const ws = new Uint32Array(s);
+      for (let r=0;r<10;r++) {
+        qr(ws,0,4,8,12); qr(ws,1,5,9,13); qr(ws,2,6,10,14); qr(ws,3,7,11,15);
+        qr(ws,0,5,10,15); qr(ws,1,6,11,12); qr(ws,2,7,8,13); qr(ws,3,4,9,14);
+      }
+      const out = new Uint8Array(64);
+      for (let i=0;i<16;i++) {
+        const v = (ws[i]+s[i])>>>0;
+        out[4*i]=v&0xff; out[4*i+1]=(v>>>8)&0xff; out[4*i+2]=(v>>>16)&0xff; out[4*i+3]=(v>>>24)&0xff;
+      }
+      return out;
+    }
+    function chachaXOR(key, nonce8, data, counterStart) {
+      const out = new Uint8Array(data.length);
+      for (let i=0;i<data.length;i+=64) {
+        const c = counterStart + Math.floor(i/64);
+        const ks = chachaBlock(key, nonce8, c & 0xffffffff, Math.floor(c / 0x100000000));
+        const end = Math.min(i+64, data.length);
+        for (let j=i;j<end;j++) out[j] = data[j] ^ ks[j-i];
+      }
+      return out;
+    }
+
+    // ---- Main decrypt ----
+    async function decrypt(blob, password) {
+      const bytes = new Uint8Array(blob);
+      if (bytes.length < 113 + 16) throw new Error('Blob trop court');
+      const magicRead = new TextDecoder().decode(bytes.slice(0, 11));
+      if (magicRead !== MAGIC) throw new Error(`Bad magic: ${magicRead}`);
+      const version = bytes[11] | (bytes[12]<<8);
+      if (version !== 3) throw new Error(`Version ${version} non supportée`);
+
+      const salt = bytes.slice(13, 45);
+      const t_cost = u32le(bytes, 45);
+      const m_cost = u32le(bytes, 49);
+      const p = u32le(bytes, 53);
+      const nonce24 = bytes.slice(89, 113);
+      const ctAndTag = bytes.slice(113);
+      const ciphertext = ctAndTag.slice(0, -16);
+
+      setStatus(`Argon2id (t=${t_cost}, m=${m_cost} KiB, p=${p})…`);
+      const res = await argon2.hash({
+        pass: password, salt: salt, time: t_cost, mem: m_cost,
+        parallelism: p, hashLen: 32, type: argon2.ArgonType.Argon2id,
+      });
+      let kek = res.hash;
+
+      setStatus(`SHA3-256 × ${SHA3_ITER}…`);
+      let a = kek;
+      for (let i=0;i<SHA3_ITER;i++) {
+        a = new Uint8Array(sha3_256.arrayBuffer(a));
+        if (i % 3000 === 0) await new Promise(r => setTimeout(r, 0)); // yield to UI
+      }
+
+      setStatus('HChaCha20 + ChaCha20 decrypt…');
+      const subkey = hchacha20(a, nonce24.slice(0, 16));
+      const pt = chachaXOR(subkey, nonce24.slice(16, 24), ciphertext, 1);
+
+      // Trim trailing NULs
+      let end = pt.length;
+      while (end > 0 && pt[end-1] === 0) end--;
+      const json = new TextDecoder().decode(pt.slice(0, end));
+      return JSON.parse(json);
+    }
+
+    // ---- BIP39 entropy → mnemonic (wordlist inlined via SRI-checked script) ----
+    // Canonical Trezor BIP-39 English list. SHA-256 of the joined list is checked
+    // to defend against a tampered vendor/bip39-english.js that still passes SRI
+    // (shouldn't happen, but defense-in-depth).
+    const BIP39_WORDS_SHA256 =
+      '2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda';
+    let BIP39_VERIFIED = null;
+    async function loadBip39() {
+      if (BIP39_VERIFIED) return BIP39_VERIFIED;
+      const w = window.BIP39_ENGLISH;
+      if (!Array.isArray(w) || w.length !== 2048) {
+        throw new Error('BIP39 wordlist missing or corrupt');
+      }
+      const joined = new TextEncoder().encode(w.join('\n') + '\n');
+      const hashBuf = await crypto.subtle.digest('SHA-256', joined);
+      const hex = [...new Uint8Array(hashBuf)].map(b => b.toString(16).padStart(2, '0')).join('');
+      if (hex !== BIP39_WORDS_SHA256) {
+        throw new Error('BIP39 wordlist hash mismatch — refusing to compute mnemonics');
+      }
+      BIP39_VERIFIED = w;
+      return w;
+    }
+    async function entropyToMnemonic(entropyHex) {
+      const words = await loadBip39();
+      let hex = entropyHex.startsWith('0x') ? entropyHex.slice(2) : entropyHex;
+      const entropy = new Uint8Array(hex.match(/.{2}/g).map(b => parseInt(b, 16)));
+      const entBits = entropy.length * 8;
+      const csBits = entBits / 32;
+      // checksum = first csBits of SHA-256(entropy)
+      const hashBuf = await crypto.subtle.digest('SHA-256', entropy);
+      const hash = new Uint8Array(hashBuf);
+      // build bit string
+      let bits = '';
+      for (const b of entropy) bits += b.toString(2).padStart(8, '0');
+      const cs = hash[0].toString(2).padStart(8, '0').slice(0, csBits);
+      bits += cs;
+      // split into 11-bit chunks
+      const result = [];
+      for (let i = 0; i < bits.length; i += 11) {
+        const idx = parseInt(bits.slice(i, i + 11), 2);
+        result.push(words[idx]);
+      }
+      return result.join(' ');
+    }
+
+    async function walletsFromData(data, computeMnemonic = true) {
+      const out = [];
+      for (const acct of (data.accounts || [])) {
+        const roots = {};
+        for (const r of (acct.roots || [])) roots[r.id] = r;
+        for (const w of (acct.wallets || [])) {
+          const r = roots[w.rootId] || {};
+          const entry = {
+            name: w.name,
+            addressEth: w.addressEth,
+            addressSol: w.addressSol,
+            derivationPathEth: w.derivationPathEth,
+            derivationPathSol: w.derivationPathSol,
+            entropy: r.entropy || null,
+            mnemonic: null,
+            private_key: r.private || null,
+            hwDeviceId: w.hwDeviceId || null,
+          };
+          if (entry.entropy && computeMnemonic) {
+            try { entry.mnemonic = await entropyToMnemonic(entry.entropy); }
+            catch (e) { entry.mnemonic_error = e.message; }
+          }
+          out.push(entry);
+        }
+      }
+      return out;
+    }
+
+    function slugify(s) {
+      return (s || '').replace(/[^A-Za-z0-9_-]+/g, '_').slice(0, 20) || 'wallet';
+    }
+
+    async function makeWalletZip(wallets) {
+      const zip = new JSZip();
+      wallets.forEach((w, i) => {
+        const idx = String(i + 1).padStart(4, '0');
+        const eth = (w.addressEth || 'noaddr').slice(0, 10);
+        const name = slugify(w.name);
+        const fname = `wallet-${idx}-${eth}_${name}.json`;
+        zip.file(fname, JSON.stringify(w, null, 2));
+      });
+      return zip.generateAsync({ type: 'blob' });
+    }
+
+    // ---- Vault re-encrypt: same format as python/oneinch_vault.py and go/main.go ----
+    // Argon2id + XChaCha20-Poly1305 AEAD. Binary layout:
+    //   [0:8] magic "1ivault\0"  [8] ver=1  [9:12] rsv  [12:24] t|m|p (u32 LE each)
+    //   [24:56] salt  [56:80] nonce  [80:] AEAD ciphertext+tag
+    async function vaultEncrypt(plaintext, password) {
+      const t = 4, m = 262144, p = 1;  // matches Python/Go defaults
+      const salt = crypto.getRandomValues(new Uint8Array(32));
+      const nonce = crypto.getRandomValues(new Uint8Array(24));
+      const res = await argon2.hash({
+        pass: password, salt: salt, time: t, mem: m,
+        parallelism: p, hashLen: 32, type: argon2.ArgonType.Argon2id,
+      });
+      const key = res.hash;
+      // XChaCha20-Poly1305 encrypt: subkey = hchacha20(key, nonce[:16]),
+      // then classic ChaCha20 + Poly1305 with nonce[16:24].
+      const subkey = hchacha20(key, nonce.slice(0, 16));
+      const ct = chachaXOR(subkey, nonce.slice(16, 24), plaintext, 1);
+      // Poly1305 MAC: RFC 7539 AEAD construction (no AAD)
+      const polyKey = chachaBlock(subkey, nonce.slice(16, 24), 0, 0).slice(0, 32);
+      const tag = poly1305(polyKey, new Uint8Array(0), ct);
+
+      const header = new Uint8Array(80);
+      header.set(new TextEncoder().encode('1ivault\0'), 0);
+      header[8] = 1;  // version
+      new DataView(header.buffer).setUint32(12, t, true);
+      new DataView(header.buffer).setUint32(16, m, true);
+      new DataView(header.buffer).setUint32(20, p, true);
+      header.set(salt, 24);
+      header.set(nonce, 56);
+      const out = new Uint8Array(80 + ct.length + 16);
+      out.set(header, 0);
+      out.set(ct, 80);
+      out.set(tag, 80 + ct.length);
+      return out;
+    }
+
+    // Poly1305 (RFC 8439 AEAD construction). ~100 lines but keeps us zero-dep.
+    function poly1305(key, aad, ct) {
+      const r = new Uint8Array(16);
+      r.set(key.slice(0, 16));
+      // clamp
+      r[3] &= 15; r[7] &= 15; r[11] &= 15; r[15] &= 15;
+      r[4] &= 252; r[8] &= 252; r[12] &= 252;
+      const s = key.slice(16, 32);
+      // Build mac_data = pad16(aad) || pad16(ct) || len64(aad) || len64(ct)
+      const pad16 = n => (16 - (n % 16)) % 16;
+      const mac_len = aad.length + pad16(aad.length) + ct.length + pad16(ct.length) + 16;
+      const mac = new Uint8Array(mac_len);
+      let off = 0;
+      mac.set(aad, off); off += aad.length + pad16(aad.length);
+      mac.set(ct, off); off += ct.length + pad16(ct.length);
+      const dv = new DataView(mac.buffer);
+      dv.setBigUint64(off, BigInt(aad.length), true); off += 8;
+      dv.setBigUint64(off, BigInt(ct.length), true);
+
+      // Poly1305 accumulator (BigInt — simple/slow but correct)
+      const P = (1n << 130n) - 5n;
+      const rBig = bytesToBigIntLE(r);
+      const sBig = bytesToBigIntLE(s);
+      let acc = 0n;
+      for (let i = 0; i < mac.length; i += 16) {
+        const blk = mac.slice(i, Math.min(i + 16, mac.length));
+        const n = new Uint8Array(17);
+        n.set(blk);
+        n[blk.length] = 1;  // high bit
+        acc = ((acc + bytesToBigIntLE(n)) * rBig) % P;
+      }
+      acc = (acc + sBig) & ((1n << 128n) - 1n);
+      const tag = new Uint8Array(16);
+      bigIntToLEBytes(acc, tag);
+      return tag;
+    }
+    function bytesToBigIntLE(b) {
+      let v = 0n;
+      for (let i = b.length - 1; i >= 0; i--) v = (v << 8n) | BigInt(b[i]);
+      return v;
+    }
+    function bigIntToLEBytes(v, out) {
+      for (let i = 0; i < out.length; i++) { out[i] = Number(v & 0xffn); v >>= 8n; }
+    }
+
+    function setStatus(msg, cls) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status' + (cls ? ' ' + cls : '');
+    }
+
+    // ---- Live proof: any attempt to reach the network MUST fail (CSP connect-src 'none') ----
+    // If it DOESN'T fail, we refuse to run — the deployment is missing the CSP header/meta
+    // and a compromised script could exfiltrate the passphrase.
+    let networkIsolated = null;
+    (async () => {
+      const $net = document.getElementById('netstatus');
+      try {
+        await fetch('https://1.1.1.1/', { method: 'GET', mode: 'no-cors' });
+        networkIsolated = false;
+        $net.innerHTML = '⚠ <strong>Network NOT isolated</strong> — this page can reach external hosts. Decryption DISABLED. Deploy on GitHub Pages, run from <code>file://</code>, or fix the CSP.';
+        $net.className = 'netstatus';
+        $net.style.color = '#ef4444';
+      } catch (e) {
+        networkIsolated = true;
+        $net.textContent = '✓ Network isolated — the browser refused to contact external hosts.';
+        $net.className = 'netstatus ok';
+      }
+      checkReady();
+    })();
+
+    // ---- UI glue ----
+    const $file = document.getElementById('file');
+    const $pw = document.getElementById('pw');
+    const $go = document.getElementById('go');
+    const $result = document.getElementById('result');
+    const $summary = document.getElementById('summary');
+    const $preview = document.getElementById('preview');
+    const $dlJson = document.getElementById('dl-json');
+
+    let lastBlob = null;
+    $file.addEventListener('change', async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      lastBlob = await f.arrayBuffer();
+      setStatus(`Fichier chargé (${lastBlob.byteLength} bytes)`);
+      checkReady();
+    });
+    $pw.addEventListener('input', checkReady);
+    function checkReady() {
+      // Refuse to enable the Decrypt button until we have verified the page's
+      // network is isolated. Otherwise a tampered script could exfiltrate.
+      $go.disabled = !(lastBlob && $pw.value && networkIsolated === true);
+    }
+
+    // Wait for libs
+    const libCheck = setInterval(() => {
+      if (window.argon2 && window.sha3_256) {
+        clearInterval(libCheck);
+        setStatus('Prêt.', 'ok');
+        checkReady();
+      }
+    }, 100);
+
+    const $dlZip = document.getElementById('dl-zip');
+    const $dlVault = document.getElementById('dl-vault');
+
+    $go.addEventListener('click', async () => {
+      $go.disabled = true;
+      $result.style.display = 'none';
+      try {
+        const password = $pw.value;
+        const data = await decrypt(lastBlob, password);
+        setStatus('Calcul mnemonics BIP39…');
+        const wallets = await walletsFromData(data, true);
+
+        $summary.innerHTML = `<strong>${wallets.length}</strong> wallet(s). Avec mnemonic: ${wallets.filter(w => w.mnemonic).length}, avec private key: ${wallets.filter(w => w.private_key).length}, incomplets: ${wallets.filter(w => !w.mnemonic && !w.private_key).length}.`;
+
+        $preview.innerHTML = wallets.slice(0, 5).map(w =>
+          `<div class="wallet-item"><b>${escapeHtml(w.name || '')}</b> · ETH: ${escapeHtml(w.addressEth || '')} · ${w.mnemonic ? 'mnemonic: ' + escapeHtml(w.mnemonic.split(' ').slice(0,3).join(' ')) + '…' : '(no mnemonic)'}</div>`
+        ).join('');
+
+        // Re-encrypt the wallets array using SAME passphrase → vault (primary download)
+        setStatus('Rechiffrement avec la même passphrase (Argon2id t=4, 256 MiB)…');
+        const walletsJson = new TextEncoder().encode(JSON.stringify(wallets, null, 2));
+        const vaultBlob = new Blob([await vaultEncrypt(walletsJson, password)],
+                                   { type: 'application/octet-stream' });
+        $dlVault.href = URL.createObjectURL(vaultBlob);
+        $dlVault.download = 'wallets.vault';
+
+        // Plaintext downloads prepared but hidden behind the <details>
+        const jsonBlob = new Blob([walletsJson], { type: 'application/json' });
+        $dlJson.href = URL.createObjectURL(jsonBlob);
+        $dlJson.download = 'wallets.json';
+
+        setStatus('Préparation du zip (plaintext)…');
+        const zipBlob = await makeWalletZip(wallets);
+        $dlZip.href = URL.createObjectURL(zipBlob);
+        $dlZip.download = 'wallets.zip';
+        setStatus(`✓ ${wallets.length} wallets — vault rechiffré prêt (plaintext en option)`, 'ok');
+
+        $result.style.display = 'block';
+      } catch (err) {
+        // Only log error name/message — never the full Error object which may
+        // include stack frames referencing passphrase or plaintext buffers.
+        setStatus('✗ ' + err.message, 'err');
+      } finally {
+        $go.disabled = false;
+      }
+    });
+
+    function escapeHtml(s) { return (s+'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+  </script>
+</body>
+</html>
