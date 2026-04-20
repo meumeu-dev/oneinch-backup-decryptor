@@ -1,5 +1,7 @@
 # 1inch Wallet Backup Decryptor
 
+🇬🇧 English · [🇫🇷 Français](README.fr.md)
+
 **▶ Open the tool: https://meumeu-dev.github.io/oneinch-backup-decryptor/**
 
 Open-source, **end-to-end encrypted**, **100 % client-side** recovery tool for 1inch Wallet Android `.1inch` backup files (format v3). A single HTML page. No server. No network after page load.
