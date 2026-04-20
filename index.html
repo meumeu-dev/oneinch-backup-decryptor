@@ -66,6 +66,8 @@
     input[type=file], input[type=password] { width: 100%; padding: .5rem; background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 4px; font-family: inherit; }
     button { background: #2563eb; color: white; border: 0; padding: .6rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 1rem; }
     button:disabled { opacity: .5; cursor: not-allowed; }
+    .tab { margin-top: 0 !important; padding: .4rem .9rem !important; font-size: .8rem !important; }
+    .tab:not(.active) { background: #334155 !important; }
     pre { background: #020617; padding: .75rem; overflow-x: auto; font-size: .8rem; border-radius: 4px; max-height: 300px; }
     .status { font-family: ui-monospace, monospace; font-size: .85rem; color: #fbbf24; }
     .err { color: #ef4444; }
@@ -98,13 +100,36 @@
   </div>
 
   <div class="card">
-    <label>Fichier backup (.1inch)</label>
-    <input type="file" id="file" accept=".1inch,.bin,application/octet-stream" />
+    <div style="display:flex;gap:.5rem;margin-bottom:.75rem;border-bottom:1px solid #334155;padding-bottom:.5rem">
+      <button id="tab-decrypt" class="tab active" style="background:#2563eb">Décrypter un .1inch</button>
+      <button id="tab-vault" class="tab" style="background:#334155">Ouvrir un .vault</button>
+    </div>
 
-    <label>Passphrase</label>
-    <input type="password" id="pw" placeholder="ta clé de chiffrement" />
+    <div id="mode-decrypt">
+      <label>Fichier backup (.1inch)</label>
+      <input type="file" id="file" accept=".1inch,.bin,application/octet-stream" />
 
-    <button id="go" disabled>Decrypt</button>
+      <label>Passphrase</label>
+      <input type="password" id="pw" placeholder="ta clé de chiffrement" />
+
+      <label style="font-weight:400;font-size:.8rem;margin-top:.75rem;color:#fca5a5">
+        <input type="checkbox" id="chk-plaintext" style="width:auto;margin-right:.4rem;vertical-align:middle">
+        <strong>Aussi</strong> préparer les exports EN CLAIR (json + zip plaintext). <span style="color:#ef4444">À utiliser uniquement sur une machine de confiance.</span>
+      </label>
+
+      <button id="go" disabled>Decrypt</button>
+    </div>
+
+    <div id="mode-vault" style="display:none">
+      <label>Fichier vault (.vault)</label>
+      <input type="file" id="file-v" accept=".vault,.bin,application/octet-stream" />
+
+      <label>Passphrase</label>
+      <input type="password" id="pw-v" placeholder="passphrase utilisée pour le chiffrement" />
+
+      <button id="go-v" disabled>Open vault</button>
+    </div>
+
     <div class="status" id="status">Chargement des libs crypto…</div>
   </div>
 
@@ -114,7 +139,7 @@
     <p>
       <a class="dl" id="dl-vault" href="#">⬇ Télécharger wallets.vault (rechiffré avec la même passphrase) 🔐</a>
     </p>
-    <details style="margin-top:.5rem">
+    <details id="plaintext-exports" style="margin-top:.5rem">
       <summary style="cursor:pointer; color:#fca5a5">⚠ Exports EN CLAIR (cliquer pour afficher — risque)</summary>
       <div style="background:#450a0a; border:1px solid #b91c1c; padding:.7rem; border-radius:6px; margin-top:.5rem; font-size:.8rem">
         <strong>Attention :</strong> les fichiers ci-dessous contiennent les seeds EN CLAIR. N'importe qui qui les récupère peut drainer les wallets. Si tu les télécharges, supprime-les sécuritairement après usage (<code>shred -uz</code>).
@@ -482,9 +507,103 @@
     const $dlZip = document.getElementById('dl-zip');
     const $dlVault = document.getElementById('dl-vault');
 
+    // ---- Tab switching: .1inch decrypt vs .vault decrypt ----
+    const $tabDec = document.getElementById('tab-decrypt');
+    const $tabVlt = document.getElementById('tab-vault');
+    const $modeDec = document.getElementById('mode-decrypt');
+    const $modeVlt = document.getElementById('mode-vault');
+    $tabDec.addEventListener('click', () => {
+      $modeDec.style.display = ''; $modeVlt.style.display = 'none';
+      $tabDec.style.background = '#2563eb'; $tabVlt.style.background = '#334155';
+    });
+    $tabVlt.addEventListener('click', () => {
+      $modeVlt.style.display = ''; $modeDec.style.display = 'none';
+      $tabVlt.style.background = '#2563eb'; $tabDec.style.background = '#334155';
+    });
+
+    // ---- .vault decrypt mode ----
+    const $fileV = document.getElementById('file-v');
+    const $pwV = document.getElementById('pw-v');
+    const $goV = document.getElementById('go-v');
+    const $chkPlain = document.getElementById('chk-plaintext');
+    let vaultBlobData = null;
+    $fileV.addEventListener('change', async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      vaultBlobData = await f.arrayBuffer();
+      checkReadyV();
+    });
+    $pwV.addEventListener('input', checkReadyV);
+    function checkReadyV() {
+      $goV.disabled = !(vaultBlobData && $pwV.value && networkIsolated === true);
+    }
+
+    async function vaultDecrypt(bytes, password) {
+      const b = new Uint8Array(bytes);
+      const magic = new TextDecoder().decode(b.slice(0, 8));
+      if (magic !== '1ivault\0') throw new Error('bad magic (not a .vault file)');
+      if (b[8] !== 1) throw new Error('unsupported vault version ' + b[8]);
+      const dv = new DataView(b.buffer, b.byteOffset);
+      const t = dv.getUint32(12, true), m = dv.getUint32(16, true), p = dv.getUint32(20, true);
+      if (!(1 <= t && t <= 16)) throw new Error('unreasonable t_cost');
+      if (!(1024 <= m && m <= (1<<22))) throw new Error('unreasonable memory_cost');
+      if (!(1 <= p && p <= 16)) throw new Error('unreasonable parallelism');
+      const salt = b.slice(24, 56);
+      const nonce = b.slice(56, 80);
+      const ctTag = b.slice(80);
+      const ct = ctTag.slice(0, -16);
+      const tag = ctTag.slice(-16);
+
+      const res = await argon2.hash({
+        pass: password, salt, time: t, mem: m, parallelism: p, hashLen: 32,
+        type: argon2.ArgonType.Argon2id,
+      });
+      const key = res.hash;
+      const subkey = hchacha20(key, nonce.slice(0, 16));
+      const polyKey = chachaBlock(subkey, nonce.slice(16, 24), 0, 0).slice(0, 32);
+      const expected = poly1305(polyKey, new Uint8Array(0), ct);
+      let ok = expected.length === tag.length;
+      for (let i = 0; i < tag.length; i++) ok = ok && expected[i] === tag[i];
+      if (!ok) throw new Error('wrong passphrase or corrupt vault (tag mismatch)');
+      const pt = chachaXOR(subkey, nonce.slice(16, 24), ct, 1);
+      return new TextDecoder().decode(pt);
+    }
+
+    $goV.addEventListener('click', async () => {
+      $goV.disabled = true;
+      $result.style.display = 'none';
+      try {
+        setStatus('Argon2id (vault)…');
+        const json = await vaultDecrypt(vaultBlobData, $pwV.value);
+        const wallets = JSON.parse(json);
+        setStatus(`✓ Vault ouvert — ${wallets.length} wallet(s)`, 'ok');
+
+        $summary.innerHTML = `<strong>${wallets.length}</strong> wallet(s) from vault.`;
+        $preview.innerHTML = wallets.slice(0, 5).map(w =>
+          `<div class="wallet-item"><b>${escapeHtml(w.name || '')}</b> · ETH: ${escapeHtml(w.addressEth || '')} · ${w.mnemonic ? 'mnemonic: ' + escapeHtml(w.mnemonic.split(' ').slice(0,3).join(' ')) + '…' : '(no mnemonic)'}</div>`
+        ).join('');
+
+        // Vault opened → ONLY offer plaintext downloads (vault already exists).
+        $dlVault.style.display = 'none';
+        const jsonBlob = new Blob([json], { type: 'application/json' });
+        $dlJson.href = URL.createObjectURL(jsonBlob);
+        $dlJson.download = 'wallets.json';
+        const zipBlob = await makeWalletZip(wallets);
+        $dlZip.href = URL.createObjectURL(zipBlob);
+        $dlZip.download = 'wallets.zip';
+        $result.style.display = 'block';
+      } catch (err) {
+        setStatus('✗ ' + err.message, 'err');
+      } finally {
+        $goV.disabled = false;
+      }
+    });
+
+    // ---- .1inch decrypt mode ----
     $go.addEventListener('click', async () => {
       $go.disabled = true;
       $result.style.display = 'none';
+      const alsoPlaintext = $chkPlain.checked;
       try {
         const password = $pw.value;
         const data = await decrypt(lastBlob, password);
@@ -502,24 +621,30 @@
         const walletsJson = new TextEncoder().encode(JSON.stringify(wallets, null, 2));
         const vaultBlob = new Blob([await vaultEncrypt(walletsJson, password)],
                                    { type: 'application/octet-stream' });
+        $dlVault.style.display = '';
         $dlVault.href = URL.createObjectURL(vaultBlob);
         $dlVault.download = 'wallets.vault';
 
-        // Plaintext downloads prepared but hidden behind the <details>
-        const jsonBlob = new Blob([walletsJson], { type: 'application/json' });
-        $dlJson.href = URL.createObjectURL(jsonBlob);
-        $dlJson.download = 'wallets.json';
+        // Plaintext exports are only prepared if the user opted in.
+        const $plainBlock = document.getElementById('plaintext-exports');
+        if (alsoPlaintext) {
+          const jsonBlob = new Blob([walletsJson], { type: 'application/json' });
+          $dlJson.href = URL.createObjectURL(jsonBlob);
+          $dlJson.download = 'wallets.json';
 
-        setStatus('Préparation du zip (plaintext)…');
-        const zipBlob = await makeWalletZip(wallets);
-        $dlZip.href = URL.createObjectURL(zipBlob);
-        $dlZip.download = 'wallets.zip';
-        setStatus(`✓ ${wallets.length} wallets — vault rechiffré prêt (plaintext en option)`, 'ok');
+          setStatus('Préparation du zip (plaintext)…');
+          const zipBlob = await makeWalletZip(wallets);
+          $dlZip.href = URL.createObjectURL(zipBlob);
+          $dlZip.download = 'wallets.zip';
+          $plainBlock.style.display = '';
+          setStatus(`✓ ${wallets.length} wallets — vault rechiffré prêt + plaintext exports`, 'ok');
+        } else {
+          $plainBlock.style.display = 'none';
+          setStatus(`✓ ${wallets.length} wallets — vault rechiffré prêt (plaintext non généré)`, 'ok');
+        }
 
         $result.style.display = 'block';
       } catch (err) {
-        // Only log error name/message — never the full Error object which may
-        // include stack frames referencing passphrase or plaintext buffers.
         setStatus('✗ ' + err.message, 'err');
       } finally {
         $go.disabled = false;

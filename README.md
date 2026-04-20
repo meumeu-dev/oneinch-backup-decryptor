@@ -1,5 +1,7 @@
 # 1inch Wallet Backup Decryptor
 
+**▶ Open the tool: https://meumeu-dev.github.io/oneinch-backup-decryptor/**
+
 Open-source, **end-to-end encrypted**, **100 % client-side** recovery tool for 1inch Wallet Android `.1inch` backup files (format v3). A single HTML page. No server. No network after page load.
 
 Runs in any modern browser. Also runs offline from a USB stick (open `index.html` directly with `file://…`).
@@ -43,9 +45,15 @@ For GitHub Pages specifically: in the repo settings, set the Pages source to `ma
 
 ## Safe-by-default output
 
-The primary download after decryption is a **re-encrypted vault** (`wallets.vault`), encrypted with the same passphrase you just typed, using standard XChaCha20-Poly1305 + Argon2id. Your plaintext seeds never touch the disk unless you explicitly ask for them.
+The only download the tool produces by default is a **re-encrypted vault** (`wallets.vault`), encrypted with the same passphrase you just typed, using standard XChaCha20-Poly1305 + Argon2id. Your plaintext seeds never touch the disk.
 
-If you need the raw plaintext JSON (or a ZIP with one JSON per wallet), it is hidden behind a collapsed **⚠ Exports EN CLAIR** block with a red warning. Use it only on a trusted, ephemeral machine, and `shred -uz` the files afterwards.
+If you need the raw plaintext JSON (or a ZIP with one JSON per wallet), tick the **⚠ Also prepare plaintext exports** checkbox before clicking Decrypt. A red warning block will appear with the plaintext download links. Use them only on a trusted, ephemeral machine, and `shred -uz` the files afterwards.
+
+## How to open a `.vault` later
+
+The same tool handles both directions. Switch to the **"Ouvrir un .vault"** tab, drop your `wallets.vault`, enter the passphrase, click **Open vault** → you get the wallet list back with an option to re-export as plaintext.
+
+The `.vault` format is a standard libsodium-compatible XChaCha20-Poly1305 AEAD blob preceded by an 80-byte header (magic `1ivault\0`, version, Argon2id params, salt, nonce). Any libsodium-based tool can decrypt it given the header — see "Re-encrypted vault format" below for the exact layout. Examples of compatible libraries: `libsodium.js` and `pynacl` in Python, `golang.org/x/crypto/chacha20poly1305` in Go, `libsodium` C directly.
 
 ---
 
