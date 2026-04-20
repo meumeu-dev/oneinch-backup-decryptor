@@ -125,13 +125,26 @@
       <label>Fichier backup (.1inch)</label>
       <input type="file" id="file" accept=".1inch,.bin,application/octet-stream" />
 
-      <label>Passphrase</label>
-      <input type="password" id="pw" placeholder="ta clé de chiffrement" />
+      <label>Passphrase du backup</label>
+      <input type="password" id="pw" placeholder="ta clé de chiffrement 1inch" />
 
-      <label style="font-weight:400;font-size:.8rem;margin-top:.75rem;color:#fca5a5">
-        <input type="checkbox" id="chk-plaintext" style="width:auto;margin-right:.4rem;vertical-align:middle">
-        <strong>Aussi</strong> préparer les exports EN CLAIR (json + zip plaintext). <span style="color:#ef4444">À utiliser uniquement sur une machine de confiance.</span>
-      </label>
+      <details style="margin-top:.75rem">
+        <summary style="cursor:pointer; font-size:.82rem; color:#94a3b8">
+          ⚙ Options avancées (passphrase du vault, exports plaintext)
+        </summary>
+        <div style="margin-top:.5rem; padding-left:.5rem; border-left:2px solid #334155">
+          <label style="font-weight:400;font-size:.82rem">
+            Passphrase du vault de sortie
+            <span style="color:#94a3b8">— laisse vide pour réutiliser celle du backup</span>
+          </label>
+          <input type="password" id="pw-vault-out" placeholder="(optionnel) passphrase différente pour wallets.vault" />
+
+          <label style="font-weight:400;font-size:.8rem;margin-top:.75rem;color:#fca5a5;display:block">
+            <input type="checkbox" id="chk-plaintext" style="width:auto;margin-right:.4rem;vertical-align:middle">
+            <strong>Aussi</strong> préparer les exports EN CLAIR (wallets.json + wallets.zip). <span style="color:#ef4444">Machine de confiance uniquement.</span>
+          </label>
+        </div>
+      </details>
 
       <button id="go" disabled>Decrypt</button>
     </div>
@@ -288,7 +301,15 @@
       let end = pt.length;
       while (end > 0 && pt[end-1] === 0) end--;
       const json = new TextDecoder().decode(pt.slice(0, end));
-      return JSON.parse(json);
+
+      // The 1inch backup uses a non-standard Poly1305 construction we don't
+      // verify. A wrong passphrase produces garbage bytes → JSON parse fails.
+      // Translate that into a user-friendly error.
+      try {
+        return JSON.parse(json);
+      } catch (e) {
+        throw new Error('Passphrase incorrecte (ou backup corrompu / format incompatible).');
+      }
     }
 
     // ---- BIP39 entropy → mnemonic (wordlist inlined via SRI-checked script) ----
@@ -592,21 +613,28 @@
         setStatus('Argon2id (vault)…');
         const json = await vaultDecrypt(vaultBlobData, $pwV.value);
         const wallets = JSON.parse(json);
-        setStatus(`✓ Vault ouvert — ${wallets.length} wallet(s)`, 'ok');
 
         $summary.innerHTML = `<strong>${wallets.length}</strong> wallet(s) from vault.`;
         $preview.innerHTML = wallets.slice(0, 5).map(w =>
           `<div class="wallet-item"><b>${escapeHtml(w.name || '')}</b> · ETH: ${escapeHtml(w.addressEth || '')} · ${w.mnemonic ? 'mnemonic: ' + escapeHtml(w.mnemonic.split(' ').slice(0,3).join(' ')) + '…' : '(no mnemonic)'}</div>`
         ).join('');
 
-        // Vault opened → ONLY offer plaintext downloads (vault already exists).
+        // Vault opened → the user wants the plaintext. Show the plaintext
+        // download block (auto-expanded), hide the vault DL (they already have the vault).
         $dlVault.style.display = 'none';
         const jsonBlob = new Blob([json], { type: 'application/json' });
         $dlJson.href = URL.createObjectURL(jsonBlob);
         $dlJson.download = 'wallets.json';
+        setStatus('Préparation du zip plaintext…');
         const zipBlob = await makeWalletZip(wallets);
         $dlZip.href = URL.createObjectURL(zipBlob);
         $dlZip.download = 'wallets.zip';
+
+        const $plainBlock = document.getElementById('plaintext-exports');
+        $plainBlock.style.display = '';
+        $plainBlock.setAttribute('open', '');   // auto-expand the <details>
+
+        setStatus(`✓ Vault ouvert — ${wallets.length} wallet(s), exports plaintext prêts`, 'ok');
         $result.style.display = 'block';
       } catch (err) {
         setStatus('✗ ' + err.message, 'err');
@@ -616,12 +644,18 @@
     });
 
     // ---- .1inch decrypt mode ----
+    const $pwVaultOut = document.getElementById('pw-vault-out');
+
     $go.addEventListener('click', async () => {
       $go.disabled = true;
       $result.style.display = 'none';
       const alsoPlaintext = $chkPlain.checked;
       try {
         const password = $pw.value;
+        // Use user-supplied vault passphrase if provided, else reuse the input one.
+        const vaultPw = $pwVaultOut.value.trim() || password;
+        const sameVaultPw = (vaultPw === password);
+
         const data = await decrypt(lastBlob, password);
         setStatus('Calcul mnemonics BIP39…');
         const wallets = await walletsFromData(data, true);
@@ -632,12 +666,17 @@
           `<div class="wallet-item"><b>${escapeHtml(w.name || '')}</b> · ETH: ${escapeHtml(w.addressEth || '')} · ${w.mnemonic ? 'mnemonic: ' + escapeHtml(w.mnemonic.split(' ').slice(0,3).join(' ')) + '…' : '(no mnemonic)'}</div>`
         ).join('');
 
-        // Re-encrypt the wallets array using SAME passphrase → vault (primary download)
-        setStatus('Rechiffrement avec la même passphrase (Argon2id t=4, 256 MiB)…');
+        // Re-encrypt the wallets array using the chosen passphrase → vault (primary download)
+        setStatus(sameVaultPw
+          ? 'Rechiffrement avec la même passphrase (Argon2id t=4, 256 MiB)…'
+          : 'Rechiffrement avec une NOUVELLE passphrase (Argon2id t=4, 256 MiB)…');
         const walletsJson = new TextEncoder().encode(JSON.stringify(wallets, null, 2));
-        const vaultBlob = new Blob([await vaultEncrypt(walletsJson, password)],
+        const vaultBlob = new Blob([await vaultEncrypt(walletsJson, vaultPw)],
                                    { type: 'application/octet-stream' });
         $dlVault.style.display = '';
+        $dlVault.textContent = sameVaultPw
+          ? '⬇ Télécharger wallets.vault (rechiffré avec la même passphrase) 🔐'
+          : '⬇ Télécharger wallets.vault (rechiffré avec ta NOUVELLE passphrase) 🔐';
         $dlVault.href = URL.createObjectURL(vaultBlob);
         $dlVault.download = 'wallets.vault';
 
