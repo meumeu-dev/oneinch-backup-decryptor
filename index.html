@@ -84,101 +84,113 @@
     a.dl { color: #60a5fa; }
     .netstatus { font-family: ui-monospace, monospace; font-size: .7rem; color: #94a3b8; margin-top: .35rem; }
     .netstatus.ok { color: #6ee7b7; }
+    .lang-switch { display: inline-flex; gap: .25rem; margin-left: auto; }
+    .lang-switch button {
+      margin: 0; padding: .25rem .55rem; font-size: .7rem; font-weight: 600;
+      background: #334155; color: #cbd5e1; border: 1px solid #334155; border-radius: 6px;
+      cursor: pointer; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .lang-switch button.active { background: #2563eb; border-color: #2563eb; color: white; }
+    .lang-switch button:hover:not(.active) { background: #475569; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>1inch Wallet Backup Decryptor</h1>
-    <span class="e2ee-badge" title="End-to-end encrypted — no server ever sees your passphrase or wallets">E2EE</span>
+    <span class="e2ee-badge" data-i18n-title="e2ee_tooltip" title="End-to-end encrypted — no server ever sees your passphrase or wallets">E2EE</span>
     <a href="https://github.com/meumeu-dev/oneinch-backup-decryptor"
        target="_blank" rel="noopener noreferrer" class="gh-link"
-       title="Source code on GitHub — audit it yourself">
+       data-i18n-title="gh_tooltip" title="Source code on GitHub — audit it yourself">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.04 1.78 2.73 1.27 3.4.97.11-.75.41-1.27.74-1.56-2.56-.29-5.26-1.28-5.26-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.47.11-3.07 0 0 .98-.31 3.2 1.18a11.1 11.1 0 015.82 0c2.22-1.49 3.2-1.18 3.2-1.18.63 1.6.23 2.78.11 3.07.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.4-5.27 5.69.42.36.79 1.07.79 2.16v3.2c0 .31.21.67.8.56A11.5 11.5 0 0023.5 12c0-6.27-5.23-11.5-11.5-11.5z"/>
       </svg>
-      Source
+      <span data-i18n="gh_source">Source</span>
     </a>
+    <div class="lang-switch" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-label="English">EN</button>
+      <button type="button" data-lang="fr" aria-label="Français">FR</button>
+    </div>
   </div>
 
   <div class="e2ee-info">
-    <strong>🔐 End-to-end encrypted — verifiable by design.</strong>
+    <strong data-i18n="e2ee_heading">🔐 End-to-end encrypted — verifiable by design.</strong>
     <ul>
-      <li><strong>Zero network</strong> — <code>Content-Security-Policy: connect-src 'none'</code> blocks every <code>fetch</code>, <code>XHR</code>, <code>WebSocket</code>, <code>sendBeacon</code>. Your browser will <em>refuse</em> to send data out.</li>
-      <li><strong>Zero external script</strong> — all libraries (Argon2, SHA3, JSZip, BIP-39) served from the same origin with <code>Subresource Integrity</code> hashes pinned.</li>
-      <li><strong>Zero trust in us</strong> — save this page to disk (<code>Ctrl-S</code>), disconnect from the network, and re-open it. It still works. Audit the source — ~300 lines.</li>
-      <li><strong>Zero backend</strong> — deploy on GitHub Pages, a plain static server, or just open this file from disk. There is no POST endpoint, no server-side code, nowhere to leak to.</li>
+      <li data-i18n-html="e2ee_pt1"><strong>Zero network</strong> — <code>Content-Security-Policy: connect-src 'none'</code> blocks every <code>fetch</code>, <code>XHR</code>, <code>WebSocket</code>, <code>sendBeacon</code>. Your browser will <em>refuse</em> to send data out.</li>
+      <li data-i18n-html="e2ee_pt2"><strong>Zero external script</strong> — all libraries (Argon2, SHA3, JSZip, BIP-39) served from the same origin with <code>Subresource Integrity</code> hashes pinned.</li>
+      <li data-i18n-html="e2ee_pt3"><strong>Zero trust in us</strong> — save this page to disk (<code>Ctrl-S</code>), disconnect from the network, and re-open it. It still works. Audit the source — ~300 lines.</li>
+      <li data-i18n-html="e2ee_pt4"><strong>Zero backend</strong> — deploy on GitHub Pages, a plain static server, or just open this file from disk. There is no POST endpoint, no server-side code, nowhere to leak to.</li>
     </ul>
-    <div id="netstatus" class="netstatus">Checking network isolation…</div>
+    <div id="netstatus" class="netstatus" data-i18n="net_check">Checking network isolation…</div>
   </div>
 
-  <div class="warn">
-    N'utilise QUE pour TES propres backups.
+  <div class="warn" data-i18n="warn_own_only">
+    Only use with YOUR OWN backups.
   </div>
 
   <div class="card">
     <div style="display:flex;gap:.5rem;margin-bottom:.75rem;border-bottom:1px solid #334155;padding-bottom:.5rem">
-      <button id="tab-decrypt" class="tab active" style="background:#2563eb">Décrypter un .1inch</button>
-      <button id="tab-vault" class="tab" style="background:#334155">Ouvrir un .vault</button>
+      <button id="tab-decrypt" class="tab active" style="background:#2563eb" data-i18n="tab_decrypt">Decrypt a .1inch</button>
+      <button id="tab-vault" class="tab" style="background:#334155" data-i18n="tab_vault">Open a .vault</button>
     </div>
 
     <div id="mode-decrypt">
-      <label>Fichier backup (.1inch)</label>
+      <label data-i18n="label_file_1inch">Backup file (.1inch)</label>
       <input type="file" id="file" accept=".1inch,.bin,application/octet-stream" />
 
-      <label>Passphrase du backup</label>
-      <input type="password" id="pw" placeholder="ta clé de chiffrement 1inch" />
+      <label data-i18n="label_pw_1inch">Backup passphrase</label>
+      <input type="password" id="pw" data-i18n-placeholder="ph_pw_1inch" placeholder="your 1inch passphrase" />
 
       <details style="margin-top:.75rem">
-        <summary style="cursor:pointer; font-size:.82rem; color:#94a3b8">
-          ⚙ Options avancées (passphrase du vault, exports plaintext)
+        <summary style="cursor:pointer; font-size:.82rem; color:#94a3b8" data-i18n="adv_summary">
+          ⚙ Advanced options (custom vault passphrase, plaintext exports)
         </summary>
         <div style="margin-top:.5rem; padding-left:.5rem; border-left:2px solid #334155">
-          <label style="font-weight:400;font-size:.82rem">
-            Passphrase du vault de sortie
-            <span style="color:#94a3b8">— laisse vide pour réutiliser celle du backup</span>
+          <label style="font-weight:400;font-size:.82rem" data-i18n-html="label_vault_pw_out">
+            Output vault passphrase
+            <span style="color:#94a3b8">— leave empty to reuse the backup passphrase</span>
           </label>
-          <input type="password" id="pw-vault-out" placeholder="(optionnel) passphrase différente pour wallets.vault" />
+          <input type="password" id="pw-vault-out" data-i18n-placeholder="ph_vault_pw_out" placeholder="(optional) different passphrase for wallets.vault" />
 
-          <label style="font-weight:400;font-size:.8rem;margin-top:.75rem;color:#fca5a5;display:block">
+          <label style="font-weight:400;font-size:.8rem;margin-top:.75rem;color:#fca5a5;display:block" data-i18n-html="lbl_chk_plain">
             <input type="checkbox" id="chk-plaintext" style="width:auto;margin-right:.4rem;vertical-align:middle">
-            <strong>Aussi</strong> préparer les exports EN CLAIR (wallets.json + wallets.zip). <span style="color:#ef4444">Machine de confiance uniquement.</span>
+            <strong>Also</strong> prepare PLAINTEXT exports (wallets.json + wallets.zip). <span style="color:#ef4444">Trusted machine only.</span>
           </label>
         </div>
       </details>
 
-      <button id="go" disabled>Decrypt</button>
+      <button id="go" disabled data-i18n="btn_decrypt">Decrypt</button>
     </div>
 
     <div id="mode-vault" style="display:none">
-      <label>Fichier vault (.vault)</label>
+      <label data-i18n="label_file_vault">Vault file (.vault)</label>
       <input type="file" id="file-v" accept=".vault,.bin,application/octet-stream" />
 
-      <label>Passphrase</label>
-      <input type="password" id="pw-v" placeholder="passphrase utilisée pour le chiffrement" />
+      <label data-i18n="label_pw_vault">Passphrase</label>
+      <input type="password" id="pw-v" data-i18n-placeholder="ph_pw_vault" placeholder="passphrase used for encryption" />
 
-      <button id="go-v" disabled>Open vault</button>
+      <button id="go-v" disabled data-i18n="btn_open_vault">Open vault</button>
     </div>
 
-    <div class="status" id="status">Chargement des libs crypto…</div>
+    <div class="status" id="status" data-i18n="status_loading">Loading crypto libraries…</div>
   </div>
 
   <div class="card" id="result" style="display:none">
-    <h3>Résultat</h3>
+    <h3 data-i18n="result_heading">Result</h3>
     <div id="summary"></div>
     <p>
-      <a class="dl" id="dl-vault" href="#">⬇ Télécharger wallets.vault (rechiffré avec la même passphrase) 🔐</a>
+      <a class="dl" id="dl-vault" href="#" data-i18n="dl_vault_same">⬇ Download wallets.vault (re-encrypted with the same passphrase) 🔐</a>
     </p>
     <details id="plaintext-exports" style="margin-top:.5rem">
-      <summary style="cursor:pointer; color:#fca5a5">⚠ Exports EN CLAIR (cliquer pour afficher — risque)</summary>
+      <summary style="cursor:pointer; color:#fca5a5" data-i18n="plain_summary">⚠ PLAINTEXT exports (click to reveal — risky)</summary>
       <div style="background:#450a0a; border:1px solid #b91c1c; padding:.7rem; border-radius:6px; margin-top:.5rem; font-size:.8rem">
-        <strong>Attention :</strong> les fichiers ci-dessous contiennent les seeds EN CLAIR. N'importe qui qui les récupère peut drainer les wallets. Si tu les télécharges, supprime-les sécuritairement après usage (<code>shred -uz</code>).
+        <strong data-i18n="plain_warn_title">Warning:</strong> <span data-i18n="plain_warn_body">the files below contain seeds IN CLEAR. Anyone who obtains them can drain the wallets. If you download them, securely delete them afterwards (</span><code>shred -uz</code><span data-i18n="plain_warn_body2">).</span>
         <p style="margin:.5rem 0 0">
-          <a class="dl" id="dl-json" href="#">⬇ wallets.json (plaintext)</a> ·
-          <a class="dl" id="dl-zip" href="#">⬇ wallets.zip (un JSON par wallet, plaintext)</a>
+          <a class="dl" id="dl-json" href="#" data-i18n="dl_json">⬇ wallets.json (plaintext)</a> ·
+          <a class="dl" id="dl-zip" href="#" data-i18n="dl_zip">⬇ wallets.zip (one JSON per wallet, plaintext)</a>
         </p>
       </div>
     </details>
-    <h4>Preview premiers 5 wallets</h4>
+    <h4 data-i18n="preview_heading">Preview first 5 wallets</h4>
     <div id="preview"></div>
   </div>
 
@@ -205,6 +217,187 @@
           integrity="sha384-WZZW6Gxf477Lihdv+mutxgAf+Kzt7FFZPnUwwltDp5qZ5Fr87RRvRXawc7tNSFRh"></script>
 
   <script>
+    // ---- i18n ----
+    const I18N = {
+      en: {
+        e2ee_tooltip: "End-to-end encrypted — no server ever sees your passphrase or wallets",
+        gh_tooltip: "Source code on GitHub — audit it yourself",
+        gh_source: "Source",
+        e2ee_heading: "🔐 End-to-end encrypted — verifiable by design.",
+        e2ee_pt1: "<strong>Zero network</strong> — <code>Content-Security-Policy: connect-src 'none'</code> blocks every <code>fetch</code>, <code>XHR</code>, <code>WebSocket</code>, <code>sendBeacon</code>. Your browser will <em>refuse</em> to send data out.",
+        e2ee_pt2: "<strong>Zero external script</strong> — all libraries (Argon2, SHA3, JSZip, BIP-39) served from the same origin with <code>Subresource Integrity</code> hashes pinned.",
+        e2ee_pt3: "<strong>Zero trust in us</strong> — save this page to disk (<code>Ctrl-S</code>), disconnect from the network, and re-open it. It still works. Audit the source — ~300 lines.",
+        e2ee_pt4: "<strong>Zero backend</strong> — deploy on GitHub Pages, a plain static server, or just open this file from disk. There is no POST endpoint, no server-side code, nowhere to leak to.",
+        net_check: "Checking network isolation…",
+        net_ok: "✓ Network isolated — the browser refused to contact external hosts.",
+        net_ko: "⚠ <strong>Network NOT isolated</strong> — this page can reach external hosts. Decryption DISABLED. Deploy on GitHub Pages, run from <code>file://</code>, or fix the CSP.",
+        warn_own_only: "Only use with YOUR OWN backups.",
+        tab_decrypt: "Decrypt a .1inch",
+        tab_vault: "Open a .vault",
+        label_file_1inch: "Backup file (.1inch)",
+        label_pw_1inch: "Backup passphrase",
+        ph_pw_1inch: "your 1inch passphrase",
+        adv_summary: "⚙ Advanced options (custom vault passphrase, plaintext exports)",
+        label_vault_pw_out: "Output vault passphrase <span style=\"color:#94a3b8\">— leave empty to reuse the backup passphrase</span>",
+        ph_vault_pw_out: "(optional) different passphrase for wallets.vault",
+        lbl_chk_plain: '<input type="checkbox" id="chk-plaintext" style="width:auto;margin-right:.4rem;vertical-align:middle"><strong>Also</strong> prepare PLAINTEXT exports (wallets.json + wallets.zip). <span style="color:#ef4444">Trusted machine only.</span>',
+        btn_decrypt: "Decrypt",
+        label_file_vault: "Vault file (.vault)",
+        label_pw_vault: "Passphrase",
+        ph_pw_vault: "passphrase used for encryption",
+        btn_open_vault: "Open vault",
+        status_loading: "Loading crypto libraries…",
+        status_ready: "Ready.",
+        status_file_loaded: "File loaded ({bytes} bytes)",
+        status_argon2: "Argon2id (t={t}, m={m} KiB, p={p})…",
+        status_sha3: "SHA3-256 × {n}…",
+        status_decrypt: "HChaCha20 + ChaCha20 decrypt…",
+        status_mnemonics: "Computing BIP-39 mnemonics…",
+        status_reencrypt_same: "Re-encrypting with the same passphrase (Argon2id t=4, 256 MiB)…",
+        status_reencrypt_new: "Re-encrypting with your NEW passphrase (Argon2id t=4, 256 MiB)…",
+        status_zip: "Preparing the plaintext zip…",
+        status_done_vault_only: "✓ {n} wallets — vault ready (plaintext not generated)",
+        status_done_vault_plain: "✓ {n} wallets — vault + plaintext exports ready",
+        status_vault_argon: "Argon2id (vault)…",
+        status_vault_done: "✓ Vault opened — {n} wallet(s), plaintext exports ready",
+        result_heading: "Result",
+        summary_html: "<strong>{total}</strong> wallet(s). With mnemonic: {m}, with private key: {p}, incomplete: {i}.",
+        summary_vault: "<strong>{n}</strong> wallet(s) from vault.",
+        dl_vault_same: "⬇ Download wallets.vault (re-encrypted with the same passphrase) 🔐",
+        dl_vault_new: "⬇ Download wallets.vault (re-encrypted with your NEW passphrase) 🔐",
+        plain_summary: "⚠ PLAINTEXT exports (click to reveal — risky)",
+        plain_warn_title: "Warning:",
+        plain_warn_body: " the files below contain seeds IN CLEAR. Anyone who obtains them can drain the wallets. If you download them, securely delete them afterwards (",
+        plain_warn_body2: ").",
+        dl_json: "⬇ wallets.json (plaintext)",
+        dl_zip: "⬇ wallets.zip (one JSON per wallet, plaintext)",
+        preview_heading: "Preview first 5 wallets",
+        preview_no_mnem: "(no mnemonic)",
+        preview_mnem_prefix: "mnemonic: ",
+        err_blob_short: "Blob too short",
+        err_bad_magic: "Bad magic: {got}",
+        err_version: "Unsupported version {v}",
+        err_wrong_pw: "Wrong passphrase (or corrupt backup / incompatible format).",
+        err_bip39_missing: "BIP-39 wordlist missing or corrupt",
+        err_bip39_hash: "BIP-39 wordlist hash mismatch — refusing to compute mnemonics",
+        err_vault_bad_magic: "bad magic (not a .vault file)",
+        err_vault_version: "unsupported vault version {v}",
+        err_vault_t: "unreasonable t_cost",
+        err_vault_m: "unreasonable memory_cost",
+        err_vault_p: "unreasonable parallelism",
+        err_vault_tag: "wrong passphrase or corrupt vault (tag mismatch)",
+      },
+      fr: {
+        e2ee_tooltip: "Chiffré de bout en bout — aucun serveur ne voit ta passphrase ni tes wallets",
+        gh_tooltip: "Code source sur GitHub — audite-le toi-même",
+        gh_source: "Source",
+        e2ee_heading: "🔐 Chiffré de bout en bout — vérifiable par conception.",
+        e2ee_pt1: "<strong>Zéro réseau</strong> — <code>Content-Security-Policy: connect-src 'none'</code> bloque chaque <code>fetch</code>, <code>XHR</code>, <code>WebSocket</code>, <code>sendBeacon</code>. Ton navigateur <em>refusera</em> d'envoyer des données.",
+        e2ee_pt2: "<strong>Zéro script externe</strong> — toutes les libs (Argon2, SHA3, JSZip, BIP-39) servies depuis la même origine avec des empreintes <code>Subresource Integrity</code> épinglées.",
+        e2ee_pt3: "<strong>Zéro confiance en nous</strong> — sauvegarde cette page (<code>Ctrl-S</code>), coupe internet, rouvre-la : ça marche toujours. Audite la source — ~300 lignes.",
+        e2ee_pt4: "<strong>Zéro backend</strong> — déploie sur GitHub Pages, un simple host static, ou ouvre le fichier depuis le disque. Aucun endpoint POST, aucun code serveur, rien vers quoi fuir.",
+        net_check: "Vérification de l'isolement réseau…",
+        net_ok: "✓ Réseau isolé — le navigateur a refusé de contacter un hôte externe.",
+        net_ko: "⚠ <strong>Réseau NON isolé</strong> — cette page peut joindre des hôtes externes. Déchiffrement DÉSACTIVÉ. Déploie sur GitHub Pages, lance depuis <code>file://</code>, ou corrige la CSP.",
+        warn_own_only: "N'utilise QUE pour TES propres backups.",
+        tab_decrypt: "Décrypter un .1inch",
+        tab_vault: "Ouvrir un .vault",
+        label_file_1inch: "Fichier backup (.1inch)",
+        label_pw_1inch: "Passphrase du backup",
+        ph_pw_1inch: "ta clé de chiffrement 1inch",
+        adv_summary: "⚙ Options avancées (passphrase du vault, exports plaintext)",
+        label_vault_pw_out: "Passphrase du vault de sortie <span style=\"color:#94a3b8\">— laisse vide pour réutiliser celle du backup</span>",
+        ph_vault_pw_out: "(optionnel) passphrase différente pour wallets.vault",
+        lbl_chk_plain: '<input type="checkbox" id="chk-plaintext" style="width:auto;margin-right:.4rem;vertical-align:middle"><strong>Aussi</strong> préparer les exports EN CLAIR (wallets.json + wallets.zip). <span style="color:#ef4444">Machine de confiance uniquement.</span>',
+        btn_decrypt: "Déchiffrer",
+        label_file_vault: "Fichier vault (.vault)",
+        label_pw_vault: "Passphrase",
+        ph_pw_vault: "passphrase utilisée pour le chiffrement",
+        btn_open_vault: "Ouvrir le vault",
+        status_loading: "Chargement des libs crypto…",
+        status_ready: "Prêt.",
+        status_file_loaded: "Fichier chargé ({bytes} octets)",
+        status_argon2: "Argon2id (t={t}, m={m} KiB, p={p})…",
+        status_sha3: "SHA3-256 × {n}…",
+        status_decrypt: "Déchiffrement HChaCha20 + ChaCha20…",
+        status_mnemonics: "Calcul des mnemonics BIP-39…",
+        status_reencrypt_same: "Rechiffrement avec la même passphrase (Argon2id t=4, 256 MiB)…",
+        status_reencrypt_new: "Rechiffrement avec ta NOUVELLE passphrase (Argon2id t=4, 256 MiB)…",
+        status_zip: "Préparation du zip en clair…",
+        status_done_vault_only: "✓ {n} wallets — vault rechiffré prêt (plaintext non généré)",
+        status_done_vault_plain: "✓ {n} wallets — vault + exports en clair prêts",
+        status_vault_argon: "Argon2id (vault)…",
+        status_vault_done: "✓ Vault ouvert — {n} wallet(s), exports en clair prêts",
+        result_heading: "Résultat",
+        summary_html: "<strong>{total}</strong> wallet(s). Avec mnemonic : {m}, avec clé privée : {p}, incomplets : {i}.",
+        summary_vault: "<strong>{n}</strong> wallet(s) depuis le vault.",
+        dl_vault_same: "⬇ Télécharger wallets.vault (rechiffré avec la même passphrase) 🔐",
+        dl_vault_new: "⬇ Télécharger wallets.vault (rechiffré avec ta NOUVELLE passphrase) 🔐",
+        plain_summary: "⚠ Exports EN CLAIR (cliquer pour afficher — risqué)",
+        plain_warn_title: "Attention :",
+        plain_warn_body: " les fichiers ci-dessous contiennent les seeds EN CLAIR. N'importe qui qui les récupère peut drainer les wallets. Si tu les télécharges, supprime-les sécuritairement après usage (",
+        plain_warn_body2: ").",
+        dl_json: "⬇ wallets.json (en clair)",
+        dl_zip: "⬇ wallets.zip (un JSON par wallet, en clair)",
+        preview_heading: "Aperçu des 5 premiers wallets",
+        preview_no_mnem: "(pas de mnemonic)",
+        preview_mnem_prefix: "mnemonic : ",
+        err_blob_short: "Blob trop court",
+        err_bad_magic: "Magic invalide : {got}",
+        err_version: "Version {v} non supportée",
+        err_wrong_pw: "Passphrase incorrecte (ou backup corrompu / format incompatible).",
+        err_bip39_missing: "Liste BIP-39 manquante ou corrompue",
+        err_bip39_hash: "Empreinte de la liste BIP-39 incorrecte — refus de calculer les mnemonics",
+        err_vault_bad_magic: "magic invalide (pas un fichier .vault)",
+        err_vault_version: "version de vault non supportée : {v}",
+        err_vault_t: "t_cost hors bornes",
+        err_vault_m: "memory_cost hors bornes",
+        err_vault_p: "parallelism hors bornes",
+        err_vault_tag: "mauvaise passphrase ou vault corrompu (tag mismatch)",
+      },
+    };
+    let LANG = 'en';
+    function t(key, params) {
+      let s = (I18N[LANG] && I18N[LANG][key]) || (I18N.en[key] || key);
+      if (params) for (const k in params) s = s.replace('{' + k + '}', params[k]);
+      return s;
+    }
+    function applyLang(l) {
+      if (!I18N[l]) l = 'en';
+      LANG = l;
+      document.documentElement.lang = l;
+      try { localStorage.setItem('oneinch-decryptor-lang', l); } catch (_) {}
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.dataset.i18n);
+      });
+      document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        el.innerHTML = t(el.dataset.i18nHtml);
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.placeholder = t(el.dataset.i18nPlaceholder);
+      });
+      document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        el.title = t(el.dataset.i18nTitle);
+      });
+      document.querySelectorAll('.lang-switch button').forEach(b => {
+        b.classList.toggle('active', b.dataset.lang === l);
+      });
+    }
+    function onLangChange(cb) { langChangeCbs.push(cb); }
+    const langChangeCbs = [];
+    const _origApplyLang = applyLang;
+    applyLang = function(l) { _origApplyLang(l); langChangeCbs.forEach(cb => { try { cb(l); } catch (_) {} }); };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      let saved = null;
+      try { saved = localStorage.getItem('oneinch-decryptor-lang'); } catch (_) {}
+      const auto = (navigator.language || '').toLowerCase().startsWith('fr') ? 'fr' : 'en';
+      applyLang(saved || auto);
+      document.querySelectorAll('.lang-switch button').forEach(b => {
+        b.addEventListener('click', () => applyLang(b.dataset.lang));
+      });
+    });
+
     const MAGIC = '1inchbackup';
     const SHA3_ITER = 30001;
 
@@ -265,11 +458,11 @@
     // ---- Main decrypt ----
     async function decrypt(blob, password) {
       const bytes = new Uint8Array(blob);
-      if (bytes.length < 113 + 16) throw new Error('Blob trop court');
+      if (bytes.length < 113 + 16) throw new Error(t('err_blob_short'));
       const magicRead = new TextDecoder().decode(bytes.slice(0, 11));
-      if (magicRead !== MAGIC) throw new Error(`Bad magic: ${magicRead}`);
+      if (magicRead !== MAGIC) throw new Error(t('err_bad_magic', {got: magicRead}));
       const version = bytes[11] | (bytes[12]<<8);
-      if (version !== 3) throw new Error(`Version ${version} non supportée`);
+      if (version !== 3) throw new Error(t('err_version', {v: version}));
 
       const salt = bytes.slice(13, 45);
       const t_cost = u32le(bytes, 45);
@@ -279,21 +472,21 @@
       const ctAndTag = bytes.slice(113);
       const ciphertext = ctAndTag.slice(0, -16);
 
-      setStatus(`Argon2id (t=${t_cost}, m=${m_cost} KiB, p=${p})…`);
+      setStatusI('status_argon2', {t: t_cost, m: m_cost, p: p});
       const res = await argon2.hash({
         pass: password, salt: salt, time: t_cost, mem: m_cost,
         parallelism: p, hashLen: 32, type: argon2.ArgonType.Argon2id,
       });
       let kek = res.hash;
 
-      setStatus(`SHA3-256 × ${SHA3_ITER}…`);
+      setStatusI('status_sha3', {n: SHA3_ITER});
       let a = kek;
       for (let i=0;i<SHA3_ITER;i++) {
         a = new Uint8Array(sha3_256.arrayBuffer(a));
         if (i % 3000 === 0) await new Promise(r => setTimeout(r, 0)); // yield to UI
       }
 
-      setStatus('HChaCha20 + ChaCha20 decrypt…');
+      setStatusI('status_decrypt');
       const subkey = hchacha20(a, nonce24.slice(0, 16));
       const pt = chachaXOR(subkey, nonce24.slice(16, 24), ciphertext, 1);
 
@@ -311,7 +504,7 @@
       try {
         return JSON.parse(json);
       } catch (e) {
-        throw new Error('Passphrase incorrecte (ou backup corrompu / format incompatible).');
+        throw new Error(t('err_wrong_pw'));
       }
     }
 
@@ -326,13 +519,13 @@
       if (BIP39_VERIFIED) return BIP39_VERIFIED;
       const w = window.BIP39_ENGLISH;
       if (!Array.isArray(w) || w.length !== 2048) {
-        throw new Error('BIP39 wordlist missing or corrupt');
+        throw new Error(t('err_bip39_missing'));
       }
       const joined = new TextEncoder().encode(w.join('\n') + '\n');
       const hashBuf = await crypto.subtle.digest('SHA-256', joined);
       const hex = [...new Uint8Array(hashBuf)].map(b => b.toString(16).padStart(2, '0')).join('');
       if (hex !== BIP39_WORDS_SHA256) {
-        throw new Error('BIP39 wordlist hash mismatch — refusing to compute mnemonics');
+        throw new Error(t('err_bip39_hash'));
       }
       BIP39_VERIFIED = w;
       return w;
@@ -485,30 +678,47 @@
       for (let i = 0; i < out.length; i++) { out[i] = Number(v & 0xffn); v >>= 8n; }
     }
 
+    let _lastStatus = null; // {key, params, cls} — so we can re-render on language change
     function setStatus(msg, cls) {
       const el = document.getElementById('status');
+      // Remove the initial data-i18n so applyLang() doesn't overwrite dynamic text.
+      el.removeAttribute('data-i18n');
       el.textContent = msg;
       el.className = 'status' + (cls ? ' ' + cls : '');
     }
+    function setStatusI(key, params, cls) {
+      _lastStatus = { key, params, cls };
+      setStatus(t(key, params), cls);
+    }
+    onLangChange(() => {
+      if (_lastStatus) setStatus(t(_lastStatus.key, _lastStatus.params), _lastStatus.cls);
+    });
 
     // ---- Live proof: any attempt to reach the network MUST fail (CSP connect-src 'none') ----
-    // If it DOESN'T fail, we refuse to run — the deployment is missing the CSP header/meta
-    // and a compromised script could exfiltrate the passphrase.
     let networkIsolated = null;
-    (async () => {
+    function renderNetStatus() {
       const $net = document.getElementById('netstatus');
+      if (!$net || networkIsolated === null) return;
+      if (networkIsolated) {
+        $net.textContent = t('net_ok');
+        $net.className = 'netstatus ok';
+        $net.style.color = '';
+      } else {
+        $net.innerHTML = t('net_ko');
+        $net.className = 'netstatus';
+        $net.style.color = '#ef4444';
+      }
+    }
+    onLangChange(renderNetStatus);
+    (async () => {
       try {
         await fetch('https://1.1.1.1/', { method: 'GET', mode: 'no-cors' });
         networkIsolated = false;
-        $net.innerHTML = '⚠ <strong>Network NOT isolated</strong> — this page can reach external hosts. Decryption DISABLED. Deploy on GitHub Pages, run from <code>file://</code>, or fix the CSP.';
-        $net.className = 'netstatus';
-        $net.style.color = '#ef4444';
       } catch (e) {
         networkIsolated = true;
-        $net.textContent = '✓ Network isolated — the browser refused to contact external hosts.';
-        $net.className = 'netstatus ok';
       }
-      checkReady();
+      renderNetStatus();
+      if (typeof checkReady === 'function') checkReady();
     })();
 
     // ---- UI glue ----
@@ -525,7 +735,7 @@
       const f = e.target.files[0];
       if (!f) return;
       lastBlob = await f.arrayBuffer();
-      setStatus(`Fichier chargé (${lastBlob.byteLength} bytes)`);
+      setStatusI('status_file_loaded', {bytes: lastBlob.byteLength});
       checkReady();
     });
     $pw.addEventListener('input', checkReady);
@@ -539,7 +749,7 @@
     const libCheck = setInterval(() => {
       if (window.argon2 && window.sha3_256) {
         clearInterval(libCheck);
-        setStatus('Prêt.', 'ok');
+        setStatusI('status_ready', null, 'ok');
         checkReady();
       }
     }, 100);
@@ -594,13 +804,13 @@
     async function vaultDecrypt(bytes, password) {
       const b = new Uint8Array(bytes);
       const magic = new TextDecoder().decode(b.slice(0, 8));
-      if (magic !== '1ivault\0') throw new Error('bad magic (not a .vault file)');
-      if (b[8] !== 1) throw new Error('unsupported vault version ' + b[8]);
+      if (magic !== '1ivault\0') throw new Error(t('err_vault_bad_magic'));
+      if (b[8] !== 1) throw new Error(t('err_vault_version', {v: b[8]}));
       const dv = new DataView(b.buffer, b.byteOffset);
-      const t = dv.getUint32(12, true), m = dv.getUint32(16, true), p = dv.getUint32(20, true);
-      if (!(1 <= t && t <= 16)) throw new Error('unreasonable t_cost');
-      if (!(1024 <= m && m <= (1<<22))) throw new Error('unreasonable memory_cost');
-      if (!(1 <= p && p <= 16)) throw new Error('unreasonable parallelism');
+      const tCost = dv.getUint32(12, true), m = dv.getUint32(16, true), p = dv.getUint32(20, true);
+      if (!(1 <= tCost && tCost <= 16)) throw new Error(t('err_vault_t'));
+      if (!(1024 <= m && m <= (1<<22))) throw new Error(t('err_vault_m'));
+      if (!(1 <= p && p <= 16)) throw new Error(t('err_vault_p'));
       const salt = b.slice(24, 56);
       const nonce = b.slice(56, 80);
       const ctTag = b.slice(80);
@@ -608,7 +818,7 @@
       const tag = ctTag.slice(-16);
 
       const res = await argon2.hash({
-        pass: password, salt, time: t, mem: m, parallelism: p, hashLen: 32,
+        pass: password, salt, time: tCost, mem: m, parallelism: p, hashLen: 32,
         type: argon2.ArgonType.Argon2id,
       });
       const key = res.hash;
@@ -620,7 +830,7 @@
       zeroize(polyKey);
       if (!tagOk) {
         zeroize(key); zeroize(subkey);
-        throw new Error('wrong passphrase or corrupt vault (tag mismatch)');
+        throw new Error(t('err_vault_tag'));
       }
       const pt = chachaXOR(subkey, nonce.slice(16, 24), ct, 1);
       // Wipe key material; plaintext stays in caller-controlled lifetime.
@@ -633,13 +843,13 @@
       $goV.disabled = true;
       $result.style.display = 'none';
       try {
-        setStatus('Argon2id (vault)…');
+        setStatusI('status_vault_argon');
         const json = await vaultDecrypt(vaultBlobData, $pwV.value);
         const wallets = JSON.parse(json);
 
-        $summary.innerHTML = `<strong>${wallets.length}</strong> wallet(s) from vault.`;
+        $summary.innerHTML = t('summary_vault', {n: wallets.length});
         $preview.innerHTML = wallets.slice(0, 5).map(w =>
-          `<div class="wallet-item"><b>${escapeHtml(w.name || '')}</b> · ETH: ${escapeHtml(w.addressEth || '')} · ${w.mnemonic ? 'mnemonic: ' + escapeHtml(w.mnemonic.split(' ').slice(0,3).join(' ')) + '…' : '(no mnemonic)'}</div>`
+          `<div class="wallet-item"><b>${escapeHtml(w.name || '')}</b> · ETH: ${escapeHtml(w.addressEth || '')} · ${w.mnemonic ? escapeHtml(t('preview_mnem_prefix')) + escapeHtml(w.mnemonic.split(' ').slice(0,3).join(' ')) + '…' : escapeHtml(t('preview_no_mnem'))}</div>`
         ).join('');
 
         // Vault opened → the user wants the plaintext. Show the plaintext
@@ -648,16 +858,16 @@
         const jsonBlob = new Blob([json], { type: 'application/json' });
         $dlJson.href = URL.createObjectURL(jsonBlob);
         $dlJson.download = 'wallets.json';
-        setStatus('Préparation du zip plaintext…');
+        setStatusI('status_zip');
         const zipBlob = await makeWalletZip(wallets);
         $dlZip.href = URL.createObjectURL(zipBlob);
         $dlZip.download = 'wallets.zip';
 
         const $plainBlock = document.getElementById('plaintext-exports');
         $plainBlock.style.display = '';
-        $plainBlock.setAttribute('open', '');   // auto-expand the <details>
+        $plainBlock.setAttribute('open', '');
 
-        setStatus(`✓ Vault ouvert — ${wallets.length} wallet(s), exports plaintext prêts`, 'ok');
+        setStatusI('status_vault_done', {n: wallets.length}, 'ok');
         $result.style.display = 'block';
       } catch (err) {
         setStatus('✗ ' + err.message, 'err');
@@ -680,26 +890,27 @@
         const sameVaultPw = (vaultPw === password);
 
         const data = await decrypt(lastBlob, password);
-        setStatus('Calcul mnemonics BIP39…');
+        setStatusI('status_mnemonics');
         const wallets = await walletsFromData(data, true);
 
-        $summary.innerHTML = `<strong>${wallets.length}</strong> wallet(s). Avec mnemonic: ${wallets.filter(w => w.mnemonic).length}, avec private key: ${wallets.filter(w => w.private_key).length}, incomplets: ${wallets.filter(w => !w.mnemonic && !w.private_key).length}.`;
+        $summary.innerHTML = t('summary_html', {
+          total: wallets.length,
+          m: wallets.filter(w => w.mnemonic).length,
+          p: wallets.filter(w => w.private_key).length,
+          i: wallets.filter(w => !w.mnemonic && !w.private_key).length,
+        });
 
         $preview.innerHTML = wallets.slice(0, 5).map(w =>
-          `<div class="wallet-item"><b>${escapeHtml(w.name || '')}</b> · ETH: ${escapeHtml(w.addressEth || '')} · ${w.mnemonic ? 'mnemonic: ' + escapeHtml(w.mnemonic.split(' ').slice(0,3).join(' ')) + '…' : '(no mnemonic)'}</div>`
+          `<div class="wallet-item"><b>${escapeHtml(w.name || '')}</b> · ETH: ${escapeHtml(w.addressEth || '')} · ${w.mnemonic ? escapeHtml(t('preview_mnem_prefix')) + escapeHtml(w.mnemonic.split(' ').slice(0,3).join(' ')) + '…' : escapeHtml(t('preview_no_mnem'))}</div>`
         ).join('');
 
         // Re-encrypt the wallets array using the chosen passphrase → vault (primary download)
-        setStatus(sameVaultPw
-          ? 'Rechiffrement avec la même passphrase (Argon2id t=4, 256 MiB)…'
-          : 'Rechiffrement avec une NOUVELLE passphrase (Argon2id t=4, 256 MiB)…');
+        setStatusI(sameVaultPw ? 'status_reencrypt_same' : 'status_reencrypt_new');
         const walletsJson = new TextEncoder().encode(JSON.stringify(wallets, null, 2));
         const vaultBlob = new Blob([await vaultEncrypt(walletsJson, vaultPw)],
                                    { type: 'application/octet-stream' });
         $dlVault.style.display = '';
-        $dlVault.textContent = sameVaultPw
-          ? '⬇ Télécharger wallets.vault (rechiffré avec la même passphrase) 🔐'
-          : '⬇ Télécharger wallets.vault (rechiffré avec ta NOUVELLE passphrase) 🔐';
+        $dlVault.textContent = t(sameVaultPw ? 'dl_vault_same' : 'dl_vault_new');
         $dlVault.href = URL.createObjectURL(vaultBlob);
         $dlVault.download = 'wallets.vault';
 
@@ -710,15 +921,15 @@
           $dlJson.href = URL.createObjectURL(jsonBlob);
           $dlJson.download = 'wallets.json';
 
-          setStatus('Préparation du zip (plaintext)…');
+          setStatusI('status_zip');
           const zipBlob = await makeWalletZip(wallets);
           $dlZip.href = URL.createObjectURL(zipBlob);
           $dlZip.download = 'wallets.zip';
           $plainBlock.style.display = '';
-          setStatus(`✓ ${wallets.length} wallets — vault rechiffré prêt + plaintext exports`, 'ok');
+          setStatusI('status_done_vault_plain', {n: wallets.length}, 'ok');
         } else {
           $plainBlock.style.display = 'none';
-          setStatus(`✓ ${wallets.length} wallets — vault rechiffré prêt (plaintext non généré)`, 'ok');
+          setStatusI('status_done_vault_only', {n: wallets.length}, 'ok');
         }
 
         $result.style.display = 'block';
