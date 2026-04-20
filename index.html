@@ -297,6 +297,9 @@
       const subkey = hchacha20(a, nonce24.slice(0, 16));
       const pt = chachaXOR(subkey, nonce24.slice(16, 24), ciphertext, 1);
 
+      // Best-effort wipe of the 1inch-side key material.
+      zeroize(kek); zeroize(a); zeroize(subkey);
+
       // Trim trailing NULs
       let end = pt.length;
       while (end > 0 && pt[end-1] === 0) end--;
@@ -406,7 +409,7 @@
     //   [0:8] magic "1ivault\0"  [8] ver=1  [9:12] rsv  [12:24] t|m|p (u32 LE each)
     //   [24:56] salt  [56:80] nonce  [80:] AEAD ciphertext+tag
     async function vaultEncrypt(plaintext, password) {
-      const t = 4, m = 262144, p = 1;  // matches Python/Go defaults
+      const t = 4, m = 262144, p = 1;
       const salt = crypto.getRandomValues(new Uint8Array(32));
       const nonce = crypto.getRandomValues(new Uint8Array(24));
       const res = await argon2.hash({
@@ -414,17 +417,14 @@
         parallelism: p, hashLen: 32, type: argon2.ArgonType.Argon2id,
       });
       const key = res.hash;
-      // XChaCha20-Poly1305 encrypt: subkey = hchacha20(key, nonce[:16]),
-      // then classic ChaCha20 + Poly1305 with nonce[16:24].
       const subkey = hchacha20(key, nonce.slice(0, 16));
       const ct = chachaXOR(subkey, nonce.slice(16, 24), plaintext, 1);
-      // Poly1305 MAC: RFC 7539 AEAD construction (no AAD)
       const polyKey = chachaBlock(subkey, nonce.slice(16, 24), 0, 0).slice(0, 32);
       const tag = poly1305(polyKey, new Uint8Array(0), ct);
 
       const header = new Uint8Array(80);
       header.set(new TextEncoder().encode('1ivault\0'), 0);
-      header[8] = 1;  // version
+      header[8] = 1;
       new DataView(header.buffer).setUint32(12, t, true);
       new DataView(header.buffer).setUint32(16, m, true);
       new DataView(header.buffer).setUint32(20, p, true);
@@ -434,6 +434,9 @@
       out.set(header, 0);
       out.set(ct, 80);
       out.set(tag, 80 + ct.length);
+
+      // Best-effort wipe of every secret we no longer need.
+      zeroize(key); zeroize(subkey); zeroize(polyKey);
       return out;
     }
 
@@ -575,6 +578,19 @@
       $goV.disabled = !(vaultBlobData && $pwV.value && networkIsolated === true);
     }
 
+    // Constant-time byte-array compare — avoids any early-exit leaking position of diff.
+    function ctEqual(a, b) {
+      if (a.length !== b.length) return false;
+      let diff = 0;
+      for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+      return diff === 0;
+    }
+
+    // Best-effort zeroize a typed array. Won't help against the GC but better than nothing.
+    function zeroize(arr) {
+      if (arr && arr.fill) try { arr.fill(0); } catch (_) {}
+    }
+
     async function vaultDecrypt(bytes, password) {
       const b = new Uint8Array(bytes);
       const magic = new TextDecoder().decode(b.slice(0, 8));
@@ -599,10 +615,17 @@
       const subkey = hchacha20(key, nonce.slice(0, 16));
       const polyKey = chachaBlock(subkey, nonce.slice(16, 24), 0, 0).slice(0, 32);
       const expected = poly1305(polyKey, new Uint8Array(0), ct);
-      let ok = expected.length === tag.length;
-      for (let i = 0; i < tag.length; i++) ok = ok && expected[i] === tag[i];
-      if (!ok) throw new Error('wrong passphrase or corrupt vault (tag mismatch)');
+      const tagOk = ctEqual(expected, tag);
+      zeroize(expected);
+      zeroize(polyKey);
+      if (!tagOk) {
+        zeroize(key); zeroize(subkey);
+        throw new Error('wrong passphrase or corrupt vault (tag mismatch)');
+      }
       const pt = chachaXOR(subkey, nonce.slice(16, 24), ct, 1);
+      // Wipe key material; plaintext stays in caller-controlled lifetime.
+      zeroize(key);
+      zeroize(subkey);
       return new TextDecoder().decode(pt);
     }
 
