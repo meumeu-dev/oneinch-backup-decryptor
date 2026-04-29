@@ -286,6 +286,9 @@
         err_vault_m: "unreasonable memory_cost",
         err_vault_p: "unreasonable parallelism",
         err_vault_tag: "wrong passphrase or corrupt vault (tag mismatch)",
+        incomplete_summary: "Show the {n} incomplete wallet(s) — no mnemonic, no private key",
+        incomplete_reason_hw: "(hardware wallet — keys never leave the device)",
+        incomplete_unnamed: "(unnamed)",
       },
       fr: {
         e2ee_tooltip: "Chiffré de bout en bout — aucun serveur ne voit ta passphrase ni tes wallets",
@@ -354,6 +357,9 @@
         err_vault_m: "memory_cost hors bornes",
         err_vault_p: "parallelism hors bornes",
         err_vault_tag: "mauvaise passphrase ou vault corrompu (tag mismatch)",
+        incomplete_summary: "Voir les {n} wallet(s) incomplet(s) — pas de mnemonic, pas de clé privée",
+        incomplete_reason_hw: "(wallet hardware — les clés ne quittent jamais l'appareil)",
+        incomplete_unnamed: "(sans nom)",
       },
     };
     let LANG = 'en';
@@ -728,6 +734,20 @@
     const $result = document.getElementById('result');
     const $summary = document.getElementById('summary');
     const $preview = document.getElementById('preview');
+
+    function renderIncompleteList(wallets) {
+      const incomplete = wallets.filter(w => !w.mnemonic && !w.private_key);
+      if (incomplete.length === 0) return '';
+      const items = incomplete.map(w => {
+        const parts = [`<b>${escapeHtml(w.name || t('incomplete_unnamed'))}</b>`];
+        if (w.addressEth) parts.push('ETH: ' + escapeHtml(w.addressEth));
+        if (w.addressSol) parts.push('SOL: ' + escapeHtml(w.addressSol));
+        let extra = '';
+        if (w.hwDeviceId) extra = ` <span style="color:#94a3b8">${escapeHtml(t('incomplete_reason_hw'))}</span>`;
+        return `<div class="wallet-item">${parts.join(' · ')}${extra}</div>`;
+      }).join('');
+      return `<details style="margin-top:0.6rem"><summary style="cursor:pointer;color:#94a3b8;font-size:0.9rem">${escapeHtml(t('incomplete_summary', {n: incomplete.length}))}</summary><div style="margin-top:0.4rem">${items}</div></details>`;
+    }
     const $dlJson = document.getElementById('dl-json');
 
     let lastBlob = null;
@@ -847,7 +867,7 @@
         const json = await vaultDecrypt(vaultBlobData, $pwV.value);
         const wallets = JSON.parse(json);
 
-        $summary.innerHTML = t('summary_vault', {n: wallets.length});
+        $summary.innerHTML = t('summary_vault', {n: wallets.length}) + renderIncompleteList(wallets);
         $preview.innerHTML = wallets.slice(0, 5).map(w =>
           `<div class="wallet-item"><b>${escapeHtml(w.name || '')}</b> · ETH: ${escapeHtml(w.addressEth || '')} · ${w.mnemonic ? escapeHtml(t('preview_mnem_prefix')) + escapeHtml(w.mnemonic.split(' ').slice(0,3).join(' ')) + '…' : escapeHtml(t('preview_no_mnem'))}</div>`
         ).join('');
@@ -898,7 +918,7 @@
           m: wallets.filter(w => w.mnemonic).length,
           p: wallets.filter(w => w.private_key).length,
           i: wallets.filter(w => !w.mnemonic && !w.private_key).length,
-        });
+        }) + renderIncompleteList(wallets);
 
         $preview.innerHTML = wallets.slice(0, 5).map(w =>
           `<div class="wallet-item"><b>${escapeHtml(w.name || '')}</b> · ETH: ${escapeHtml(w.addressEth || '')} · ${w.mnemonic ? escapeHtml(t('preview_mnem_prefix')) + escapeHtml(w.mnemonic.split(' ').slice(0,3).join(' ')) + '…' : escapeHtml(t('preview_no_mnem'))}</div>`
